@@ -841,11 +841,17 @@ static void ssp_empty_rx_fifo_on_start(struct dai_intel_ssp *dp)
 {
 	struct dai_intel_ssp_pdata *ssp = dai_get_drvdata(dp);
 	uint32_t retry = DAI_INTEL_SSP_RX_FLUSH_RETRY_MAX;
-	uint32_t i, sssr;
+	uint32_t i, sssr, entries;
 
 	sssr = sys_read32(dai_base(dp) + SSSR);
+	LOG_INF("[peter] %s: ENTER (SSSR: %#x, SSCR3: %#x, channels: %u - SSRSA/rx_slots: %#x/%#x)", __func__, sssr,
+		sys_read32(dai_base(dp) + SSCR3), POPCOUNT(ssp->params.rx_slots),
+		sys_read32(dai_base(dp) + SSRSA), ssp->params.rx_slots);
 
 	if (sssr & SSSR_ROR) {
+		LOG_INF("[peter] %s: FIFO is Full, reading out %d entries", __func__,
+			DAI_INTEL_SSP_FIFO_DEPTH);
+
 		/* The RX FIFO is in overflow condition, empty it */
 		for (i = 0; i < DAI_INTEL_SSP_FIFO_DEPTH; i++)
 			sys_read32(dai_base(dp) + SSDR);
@@ -856,8 +862,9 @@ static void ssp_empty_rx_fifo_on_start(struct dai_intel_ssp *dp)
 		sssr = sys_read32(dai_base(dp) + SSSR);
 	}
 
+	LOG_INF("[peter] %s: SSSR: %#x, SSCR3: %#x", __func__, sssr, sys_read32(dai_base(dp) + SSCR3));
 	while ((sssr & SSSR_RNE) && retry--) {
-		uint32_t entries = SSCR3_RFL_VAL(sys_read32(dai_base(dp) + SSCR3)) + 1;
+		entries = SSCR3_RFL_VAL(sys_read32(dai_base(dp) + SSCR3)) + 1;
 
 		/*
 		 * The entries must be read out in multiple of number of channels used to avoid
@@ -869,6 +876,8 @@ static void ssp_empty_rx_fifo_on_start(struct dai_intel_ssp *dp)
 			break;
 		}
 
+		LOG_INF("[peter] %s: reading out %u entries (retry: %u)", __func__,
+			entries, retry);
 		/* Empty the RX FIFO (the DMA is not running at this point) */
 		for (i = 0; i < entries; i++) {
 			sys_read32(dai_base(dp) + SSDR);
@@ -876,6 +885,8 @@ static void ssp_empty_rx_fifo_on_start(struct dai_intel_ssp *dp)
 
 		sssr = sys_read32(dai_base(dp) + SSSR);
 	}
+	LOG_INF("[peter] %s: LEAVE (SSSR: %#x, SSCR3: %#x, retry: %u)", __func__, sssr,
+		sys_read32(dai_base(dp) + SSCR3), retry);
 }
 
 static void ssp_empty_rx_fifo_on_stop(struct dai_intel_ssp *dp)
@@ -1961,8 +1972,9 @@ static void dai_ssp_start(struct dai_intel_ssp *dp, int direction)
 
 	key = k_spin_lock(&dp->lock);
 
-	LOG_INF("%s", __func__);
-
+	LOG_INF("[peter] %s: ENTER (SSSR: %#x, SSCR3: %#x, channels: %u)", __func__,
+		sys_read32(dai_base(dp) + SSSR), sys_read32(dai_base(dp) + SSCR3),
+		POPCOUNT(ssp->params.rx_slots));
 	/* enable DMA */
 	if (direction == DAI_DIR_PLAYBACK) {
 		dai_ssp_update_bits(dp, SSCR1, SSCR1_TSRE, SSCR1_TSRE);

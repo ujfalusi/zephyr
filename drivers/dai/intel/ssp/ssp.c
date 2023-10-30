@@ -1811,8 +1811,8 @@ static void dai_ssp_set_reg_config(struct dai_intel_ssp *dp, const struct dai_co
 	uint32_t ssc0, sstsa, ssrsa;
 
 	ssc0 = regs->ssc0;
-	sstsa = regs->sstsa;
-	ssrsa = regs->ssrsa;
+	sstsa = SSTSA_GET(regs->sstsa);
+	ssrsa = SSRSA_GET(regs->ssrsa);
 
 	sys_write32(ssc0, dai_base(dp) + SSCR0);
 	sys_write32(regs->ssc2 & ~SSCR2_SFRMEN, dai_base(dp) + SSCR2); /* hardware specific flow */
